@@ -1,0 +1,9 @@
+[package]
+name = "add2git"
+version = "0.1.0"
+authors = ["saguywalker <guyguy252@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+git2 = "0.9"
+time = "0.1"
