@@ -1,8 +1,37 @@
+use clap::{App, Arg};
 use git2;
-use std::{fs::File, io::Write, path::Path};
+use std::{fs::File, io::Write, path::Path, process};
 use time;
 
 fn main() {
+    let matches = App::new("add2git-rs")
+        .version("0.1.0")
+        .author("SAGUYWALKER <guyguy252@gmail.com>")
+        .about("CLI programming to add, commit and push the file(s) to Git")
+        .arg(Arg::with_name("file")
+                 .short("f")
+                 .long("file")
+                 .takes_value(true)
+                 .required(false)
+                 .help("The file(s) you would like to add"))
+        .arg(Arg::with_name("cred")
+                 .short("c")
+                 .long("cred")
+                 .takes_value(true)
+                 .required(false)
+                 .help("A path to your ssh key"))
+        .arg(Arg::with_name("repo")
+                 .short("r")
+                 .long("repo")
+                 .takes_value(true)
+                 .required(false)
+                 .help("A repository url"))
+        .get_matches();
+
+    let filename = validate_file(matches.value_of("file")).unwrap();
+    println!("{} is found.", filename.display());
+
+    /*
     let repo_url = "git@github.com:saguywalker/go-with-drone.git";
     let repo_clone_path = "workspace/";
     println!("Cloning {} into {}", repo_url, repo_clone_path);
@@ -68,6 +97,20 @@ fn main() {
             Some(&mut push_ops),
         )
         .expect("error with pushing files");
+    */
+}
+
+fn validate_file<'a>(filename: Option<&'a str>) -> Result<&'a Path, &'static str>{
+    match filename{
+        None => Err("please enter filename."),
+        Some(f) => {
+            if Path::new(f).exists(){
+                return Ok(Path::new(f))
+            }else{
+                return Err("input file does not exist.")
+            };
+        }
+    }
 }
 
 fn find_last_commit(repo: &git2::Repository) -> Result<git2::Commit, git2::Error> {

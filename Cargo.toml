@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 git2 = "0.9"
 time = "0.1"
+clap = "2"
