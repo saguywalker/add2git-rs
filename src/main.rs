@@ -29,7 +29,31 @@ fn main() {
         .get_matches();
 
     let filename = validate_file(matches.value_of("file")).unwrap();
-    println!("{} is found.", filename.display());
+    println!("File {} is found.", filename.display());
+
+    let priv_file = validate_file(matches.value_of("cred")).unwrap();
+    println!("{} is found.", priv_file.display());
+    let mut priv_filename = String::from(priv_file.to_str().unwrap());
+    priv_filename.push_str(".pub");
+    let pub_file = Path::new(priv_filename.as_str());
+
+    let repo_url = matches.value_of("repo").expect("please enter the repository url");
+    let repo_clone_path = "workspace/";
+    println!("Cloning {} into {}", repo_url, repo_clone_path);
+
+    let mut builder = git2::build::RepoBuilder::new();
+    let mut callbacks = git2::RemoteCallbacks::new();
+    let mut fetch_options = git2::FetchOptions::new();
+    callbacks.credentials(|_, _, _| {
+        let credentials = git2::Cred::ssh_key(
+            "git",
+            Some(pub_file),
+            priv_file,
+            None,
+        )
+        .expect("Could not create credentials object");
+        Ok(credentials)
+    });
 
     /*
     let repo_url = "git@github.com:saguywalker/go-with-drone.git";
