@@ -55,26 +55,6 @@ fn main() {
         Ok(credentials)
     });
 
-    /*
-    let repo_url = "git@github.com:saguywalker/go-with-drone.git";
-    let repo_clone_path = "workspace/";
-    println!("Cloning {} into {}", repo_url, repo_clone_path);
-
-    let mut builder = git2::build::RepoBuilder::new();
-    let mut callbacks = git2::RemoteCallbacks::new();
-    let mut fetch_options = git2::FetchOptions::new();
-
-    callbacks.credentials(|_, _, _| {
-        let credentials = git2::Cred::ssh_key(
-            "git",
-            Some(Path::new("/path/to/id_rsa.pub")),
-            Path::new("/path/to/id_rsa"),
-            None,
-        )
-        .expect("Could not create credentials object");
-        Ok(credentials)
-    });
-
     fetch_options.remote_callbacks(callbacks);
     builder.fetch_options(fetch_options);
 
@@ -83,19 +63,20 @@ fn main() {
         .expect("Could not clone a repo");
     println!("Clone complete");
 
-    let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+    let commit = find_last_commit(&repo).expect("Could not find the last commit");
     display_commit(&commit);
-
-    let relative_path = Path::new("example.txt");
+    /*
     {
         let file_path = std::env::current_dir()
             .unwrap()
             .join(repo_clone_path)
-            .join(relative_path);
+            .join(filename);
         let mut file = File::create(file_path.clone()).expect("Couldn't create file");
         file.write_all(b"Testing with git2").unwrap();
-    }
-    let commit_id = add_and_commit(&repo, &relative_path, "add example.txt")
+    }*/
+    let mut commit_msg = String::from("add ");
+    commit_msg.push_str(filename.to_str().unwrap());
+    let commit_id = add_and_commit(&repo, &filename, commit_msg.as_str())
         .expect("Couldn't add file to repo");
     println!("New commit: {}", commit_id);
 
@@ -114,14 +95,14 @@ fn main() {
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks2);
 
-    let mut remote = repo.find_remote("origin").expect("error with finding remote");
+    let mut remote = repo.find_remote("origin").expect("Error with finding remote");
     remote
         .push(
             &["refs/heads/master:refs/heads/master"],
             Some(&mut push_ops),
         )
         .expect("error with pushing files");
-    */
+    
 }
 
 fn validate_file<'a>(filename: Option<&'a str>) -> Result<&'a Path, &'static str>{
