@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use git2;
-use std::{fs::File, io::Write, path::Path, process, env};
+use std::{path::Path, env, path::PathBuf, process::Command};
 use time;
 
 fn main() {
@@ -12,72 +12,101 @@ fn main() {
                  .short("f")
                  .long("file")
                  .takes_value(true)
-                 .required(false)
+                 .required(true)
                  .help("The file(s) you would like to add"))
-        .arg(Arg::with_name("cred")
+        .arg(Arg::with_name("credentialpath")
                  .short("c")
-                 .long("cred")
+                 .long("credentialpath")
                  .takes_value(true)
                  .required(false)
+                 .default_value("~/.ssh/id_rsa")
                  .help("A path to your ssh key"))
-        .arg(Arg::with_name("repo")
-                 .short("r")
-                 .long("repo")
+        .arg(Arg::with_name("commit")
+                 .short("m")
+                 .long("commit")
                  .takes_value(true)
                  .required(false)
-                 .help("A repository url"))
+                 .help("A commit message"))
+        .arg(Arg::with_name("user")
+                 .short("u")
+                 .long("user")
+                 .takes_value(true)
+                 .required(false)
+                 .help("A user signature"))
+        .arg(Arg::with_name("email")
+                 .short("e")
+                 .long("email")
+                 .takes_value(true)
+                 .required(false)
+                 .help("A email signature"))
         .get_matches();
 
+    //handling filename
     let filename = validate_file(matches.value_of("file")).unwrap();
     println!("File {} is found.", filename.display());
 
-    let priv_file = validate_file(matches.value_of("cred")).unwrap();
-    println!("{} is found.", priv_file.display());
+    //handling credential file
+    let priv_file = Path::new(matches.value_of("credentialpath").unwrap());
+    println!("Private key file: {}.", priv_file.display());
     let mut priv_filename = String::from(priv_file.to_str().unwrap());
     priv_filename.push_str(".pub");
-    let pub_file = Path::new(priv_filename.as_str());
+    let pub_file = if Path::new(&priv_filename.as_str()).exists(){
+        Some(Path::new(priv_filename.as_str()))
+    }else{
+        None
+    };
+    println!("Public key file: {:?}", pub_file);
 
+    //handling commit message
+    let commit_msg = match matches.value_of("commit"){
+        Some(msg) => String::from(msg),
+        None => {
+            let mut tmp = String::from("add ");
+            tmp.push_str(filename.to_str().unwrap());
+            tmp.as_str();
+            format!("add {}", filename.to_str().unwrap())
+        }
+    };
+    println!("Commit message: {}", commit_msg);
+
+    //handling user
+    
+
+    let repo = git2::Repository::open(".").expect("Could not open a repository.");
+    println!("{} stat={:?}", repo.path().display(), repo.state());
     //let repo_url = matches.value_of("repo").expect("please enter the repository url");
-    let repo_clone_path = "workspace/";
+    //let repo_clone_path = "workspace/";
     //println!("Cloning {} into {}", repo_url, repo_clone_path);
-
-    //let mut builder = git2::build::RepoBuilder::new();
+    /*
+    let mut builder = git2::build::RepoBuilder::new();*/
     let mut callbacks = git2::RemoteCallbacks::new();
     let mut fetch_options = git2::FetchOptions::new();
     callbacks.credentials(|_, _, _| {
         let credentials = git2::Cred::ssh_key(
             "git",
-            Some(&pub_file),
+            pub_file,
             &priv_file,
             None,
         )
         .expect("Could not create credentials object");
         Ok(credentials)
     });
-
     fetch_options.remote_callbacks(callbacks);
+    //let repo = git2::Repository::discover(Path::new(repo_clone_path)).expect("workspace is not discovered");
     
-    //builder.fetch_options(fetch_options);
-    /*let repo = builder
-        .clone(repo_url, Path::new(repo_clone_path))
-        .expect("Could not clone a repo");
-    println!("Clone complete");*/
-    let repo = git2::Repository::discover(Path::new(repo_clone_path)).expect("workspace is not discovered");
+    //let mut remote = repo.find_remote("origin").expect("Error with finding remote");
+    //remote.fetch(&["master"], Some(&mut fetch_options), None).expect("Could not fetch");
 
-    let mut remote = repo.find_remote("origin").expect("Error with finding remote");
-    remote.fetch(&["master"], Some(&mut fetch_options), None).expect("Could not fetch");
-
-    let commit = find_last_commit(&repo).expect("Could not find the last commit");
-    display_commit(&commit);
-    /*
-    {
+    //let commit = find_last_commit(&repo).expect("Could not find the last commit");
+    //display_commit(&commit);
+    /*{
         let file_path = std::env::current_dir()
             .unwrap()
             .join(repo_clone_path)
             .join(filename);
         let mut file = File::create(file_path.clone()).expect("Couldn't create file");
         file.write_all(b"Testing with git2").unwrap();
-    }*/
+    }
 
     let mut commit_msg = String::from("add ");
     commit_msg.push_str(filename.to_str().unwrap());
@@ -94,7 +123,7 @@ fn main() {
     callbacks2.credentials(|_, _, _| {
         let credentials = git2::Cred::ssh_key(
             "git",
-            Some(&pub_file),
+            pub_file,
             &priv_file,
             None,
         )
@@ -107,21 +136,22 @@ fn main() {
 
     remote
         .push(
-            &["refs/heads/master:refs/heads/master"],
+            &["refs/heads/master:refs/remotes/origin/master"],
             Some(&mut push_ops),
         )
         .expect("error with pushing files");
-    
+    */
 }
 
-fn validate_file<'a>(filename: Option<&'a str>) -> Result<&'a Path, &'static str>{
+fn validate_file<'a>(filename: Option<&'a str>) -> Result<PathBuf, &'static str>{
     match filename{
-        None => Err("please enter filename."),
+        None => Err("Please enter filename."),
         Some(f) => {
-            if Path::new(f).exists(){
-                return Ok(Path::new(f))
+            let abs_path = env::current_dir().unwrap().join(Path::new("workspace")).join(Path::new(f));
+            if abs_path.exists(){
+                return Ok(abs_path)
             }else{
-                return Err("input file does not exist.")
+                return Err("Input file does not exist.")
             };
         }
     }
