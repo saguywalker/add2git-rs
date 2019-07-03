@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use git2;
-use std::{fs::File, io::Write, path::Path, process};
+use std::{fs::File, io::Write, path::Path, process, env};
 use time;
 
 fn main() {
@@ -37,18 +37,18 @@ fn main() {
     priv_filename.push_str(".pub");
     let pub_file = Path::new(priv_filename.as_str());
 
-    let repo_url = matches.value_of("repo").expect("please enter the repository url");
+    //let repo_url = matches.value_of("repo").expect("please enter the repository url");
     let repo_clone_path = "workspace/";
-    println!("Cloning {} into {}", repo_url, repo_clone_path);
+    //println!("Cloning {} into {}", repo_url, repo_clone_path);
 
-    let mut builder = git2::build::RepoBuilder::new();
+    //let mut builder = git2::build::RepoBuilder::new();
     let mut callbacks = git2::RemoteCallbacks::new();
     let mut fetch_options = git2::FetchOptions::new();
     callbacks.credentials(|_, _, _| {
         let credentials = git2::Cred::ssh_key(
             "git",
-            Some(pub_file),
-            priv_file,
+            Some(&pub_file),
+            &priv_file,
             None,
         )
         .expect("Could not create credentials object");
@@ -56,12 +56,16 @@ fn main() {
     });
 
     fetch_options.remote_callbacks(callbacks);
-    builder.fetch_options(fetch_options);
-
-    let repo = builder
+    
+    //builder.fetch_options(fetch_options);
+    /*let repo = builder
         .clone(repo_url, Path::new(repo_clone_path))
         .expect("Could not clone a repo");
-    println!("Clone complete");
+    println!("Clone complete");*/
+    let repo = git2::Repository::discover(Path::new(repo_clone_path)).expect("workspace is not discovered");
+
+    let mut remote = repo.find_remote("origin").expect("Error with finding remote");
+    remote.fetch(&["master"], Some(&mut fetch_options), None).expect("Could not fetch");
 
     let commit = find_last_commit(&repo).expect("Could not find the last commit");
     display_commit(&commit);
@@ -74,9 +78,15 @@ fn main() {
         let mut file = File::create(file_path.clone()).expect("Couldn't create file");
         file.write_all(b"Testing with git2").unwrap();
     }*/
+
     let mut commit_msg = String::from("add ");
     commit_msg.push_str(filename.to_str().unwrap());
-    let commit_id = add_and_commit(&repo, &filename, commit_msg.as_str())
+
+    let mut repo_path = env::current_dir().unwrap();
+    repo_path.push("workspace");
+    let strip_filename = &filename.strip_prefix(&repo_path).expect("Could not stip the file");
+
+    let commit_id = add_and_commit(&repo, &strip_filename, commit_msg.as_str())
         .expect("Couldn't add file to repo");
     println!("New commit: {}", commit_id);
 
@@ -84,8 +94,8 @@ fn main() {
     callbacks2.credentials(|_, _, _| {
         let credentials = git2::Cred::ssh_key(
             "git",
-            Some(Path::new("/path/to/id_rsa.pub")),
-            Path::new("/path/to/id_rsa"),
+            Some(&pub_file),
+            &priv_file,
             None,
         )
         .expect("Could not create credentials object");
@@ -95,7 +105,6 @@ fn main() {
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks2);
 
-    let mut remote = repo.find_remote("origin").expect("Error with finding remote");
     remote
         .push(
             &["refs/heads/master:refs/heads/master"],
