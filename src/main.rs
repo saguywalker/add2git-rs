@@ -2,7 +2,7 @@ mod lib;
 
 use clap::{App, Arg};
 use git2;
-use std::{path::Path};
+use std::path::Path;
 
 fn main() {
     let matches = App::new("add2git-rs")
@@ -81,22 +81,21 @@ fn main() {
     let repo = git2::Repository::open(".").expect("Could not open a repository.");
     println!("{} stat={:?}", repo.path().display(), repo.state());
 
-    let mut remote = repo.find_remote("origin").expect("Could not find origin remote");
+    let mut remote = repo
+        .find_remote("origin")
+        .expect("Could not find origin remote");
 
     //fetch repository
-    let fetch_commit = lib::fetch_repository(&repo, &mut remote, &pub_file, &priv_file).unwrap();
-
+    let fetch_commit = lib::fetch_repository(&repo, &mut remote, &pub_file, &priv_file)
+        .expect("Could not fetch a repository.");
+    println!("Fetch complete");
     //merge
-    let head_commit = repo.reference_to_annotated_commit(&repo.head().unwrap()).unwrap();
-    lib::merge_branch(&repo, &head_commit , &fetch_commit).unwrap();
+    lib::do_merge(&repo, "master", fetch_commit).expect("Could not merge");
+    println!("Merge complete");
 
     //add new file and commit
-    let commit_id = lib::add_and_commit(
-        &repo,
-        Path::new(&filename),
-        commit_msg.as_str(),
-    )
-    .expect("Couldn't add file to repo");
+    let commit_id = lib::add_and_commit(&repo, Path::new(&filename), commit_msg.as_str())
+        .expect("Couldn't add file to repo");
     println!("New commit: {}", commit_id);
 
     //push file

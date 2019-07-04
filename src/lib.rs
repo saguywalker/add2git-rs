@@ -110,7 +110,12 @@ pub fn add_and_commit(
     )
 }
 
-pub fn fetch_repository<'a>(repo: &'a git2::Repository, remote: &'a mut git2::Remote, pub_file: &Option<&Path>, priv_file: &Path) -> Result<git2::AnnotatedCommit<'a>, git2::Error>{
+pub fn fetch_repository<'a>(
+    repo: &'a git2::Repository,
+    remote: &'a mut git2::Remote,
+    pub_file: &Option<&Path>,
+    priv_file: &Path,
+) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
     let mut callbacks = git2::RemoteCallbacks::new();
     let mut fetch_options = git2::FetchOptions::new();
     callbacks.credentials(|_, _, _| {
@@ -126,11 +131,16 @@ pub fn fetch_repository<'a>(repo: &'a git2::Repository, remote: &'a mut git2::Re
     Ok(repo.reference_to_annotated_commit(&fetch_head)?)
 }
 
-pub fn merge_branch(repo: &git2::Repository, local: &git2::AnnotatedCommit, remote: &git2::AnnotatedCommit) -> Result<(), git2::Error>{
+fn normal_merge(
+    repo: &git2::Repository,
+    local: &git2::AnnotatedCommit,
+    remote: &git2::AnnotatedCommit,
+) -> Result<(), git2::Error> {
     let local_tree = repo.find_tree(local.id())?;
     let remote_tree = repo.find_tree(remote.id())?;
     let ancestor = repo.find_tree(repo.merge_base(local.id(), remote.id())?)?;
     let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
+
     if idx.has_conflicts() {
         println!("Merge conficts detected...");
     }
@@ -154,7 +164,60 @@ pub fn merge_branch(repo: &git2::Repository, local: &git2::AnnotatedCommit, remo
     Ok(())
 }
 
-pub fn push<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, priv_file: &Path) -> Result<(), git2::Error>{
+fn fast_forward(lb: &mut git2::Reference, rc: &git2::AnnotatedCommit) -> Result<(), git2::Error> {
+    let name = match lb.name() {
+        Some(s) => s.to_string(),
+        None => String::from_utf8_lossy(lb.name_bytes()).to_string(),
+    };
+    let msg = format!("Fast-Forward: Setting {} to id: {}", name, rc.id());
+    lb.set_target(rc.id(), &msg)?;
+    Ok(())
+}
+
+pub fn do_merge<'a>(
+    repo: &'a git2::Repository,
+    remote_branch: &str,
+    fetch_commit: git2::AnnotatedCommit<'a>,
+) -> Result<(), git2::Error> {
+    // 1. do a merge analysis
+    let analysis = repo.merge_analysis(&[&fetch_commit])?;
+
+    // 2. Do the appopriate merge
+    if analysis.0.is_fast_forward() {
+        // do a fast forward
+        match repo.find_reference(remote_branch) {
+            Ok(r) => {
+                let head_commit = repo.reference_to_annotated_commit(&r)?;
+                fast_forward(&mut repo.find_reference(remote_branch)?, &head_commit)?;
+            }
+            Err(_) => {
+                // The branch doesn't exist so just set the reference to the
+                // commit direcly. Usually this is because you are pulling
+                // into an empty repository.
+                let refname = format!("refs/heads/{}", remote_branch);
+                repo.reference(
+                    &refname,
+                    fetch_commit.id(),
+                    true,
+                    &format!("Setting {} to {}", remote_branch, fetch_commit.id()),
+                )?;
+                repo.set_head(&refname)?;
+            }
+        };
+    } else if analysis.0.is_normal() {
+        // do a normal merge
+        let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
+        normal_merge(&repo, &head_commit, &fetch_commit)?;
+    } else {
+        println!("Nothing to do...");
+    }
+    Ok(())
+}
+pub fn push<'a>(
+    repo: &git2::Repository,
+    pub_file: &Option<&Path>,
+    priv_file: &Path,
+) -> Result<(), git2::Error> {
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(|_, _, _| {
         let credentials = git2::Cred::ssh_key("git", *pub_file, &priv_file, None)?;
@@ -162,8 +225,10 @@ pub fn push<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, priv_file: &P
     });
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks);
-    let mut remote = repo
-        .find_remote("origin")?;
-    remote.push(&["refs/heads/master:refs/heads/master"],Some(&mut push_ops))?;
+    let mut remote = repo.find_remote("origin")?;
+    remote.push(
+        &["refs/heads/master:refs/heads/master"],
+        Some(&mut push_ops),
+    )?;
     Ok(())
 }
