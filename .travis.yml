@@ -1,6 +1,4 @@
 language: rust
 script:
   - cargo build --verbose --all
-  - mkdir -p bin
-  - cp target/debug/add2git bin/add2git
-  - bin/add2git
+  - bin/add2git --help
