@@ -91,13 +91,12 @@ pub fn add_and_commit(
     repo: &git2::Repository,
     path: &Path,
     message: &str,
-    user: &str,
-    email: &str,
 ) -> Result<git2::Oid, git2::Error> {
     let mut index = repo.index()?;
     index.add_path(path)?;
     let oid = index.write_tree()?;
-    let signature = git2::Signature::now(user, email)?;
+    //let signature = git2::Signature::now(user, email)?;
+    let signature = repo.signature()?;
     let parent_commit = find_last_commit(&repo)?;
     let tree = repo.find_tree(oid)?;
     repo.commit(
@@ -110,7 +109,7 @@ pub fn add_and_commit(
     )
 }
 
-pub fn fetch_repository<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, priv_file: &Path) {
+pub fn fetch_repository<'a>(repo: &'a git2::Repository, remote: &'a mut git2::Remote, pub_file: &Option<&Path>, priv_file: &Path) -> Result<git2::AnnotatedCommit<'a>, git2::Error>{
     let mut callbacks = git2::RemoteCallbacks::new();
     let mut fetch_options = git2::FetchOptions::new();
     callbacks.credentials(|_, _, _| {
@@ -120,32 +119,50 @@ pub fn fetch_repository<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, p
     });
     fetch_options.remote_callbacks(callbacks);
 
-    let mut remote = repo
-        .find_remote("origin")
-        .expect("Error with finding remote");
-    remote
-        .fetch(&["master"], Some(&mut fetch_options), None)
-        .expect("Could not fetch");
-    println!("Fetch repository successfully.")
+    remote.fetch(&["master"], Some(&mut fetch_options), None)?;
+
+    let fetch_head = repo.find_reference("FETCH_HEAD")?;
+    Ok(repo.reference_to_annotated_commit(&fetch_head)?)
 }
 
-pub fn push<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, priv_file: &Path) {
+pub fn merge_branch(repo: &git2::Repository, local: &git2::AnnotatedCommit, remote: &git2::AnnotatedCommit) -> Result<(), git2::Error>{
+    let local_tree = repo.find_tree(local.id())?;
+    let remote_tree = repo.find_tree(remote.id())?;
+    let ancestor = repo.find_tree(repo.merge_base(local.id(), remote.id())?)?;
+    let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
+    if idx.has_conflicts() {
+        println!("Merge conficts detected...");
+    }
+    let result_tree = repo.find_tree(idx.write_tree_to(repo)?)?;
+    // now create the merge commit
+    let msg = format!("Merge: {} into {}", remote.id(), local.id());
+    let sig = repo.signature()?;
+    let local_commit = repo.find_commit(local.id())?;
+    let remote_commit = repo.find_commit(remote.id())?;
+    // Do our merge commit and set current branch head to that commit.
+    let _merge_commit = repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        &msg,
+        &result_tree,
+        &[&local_commit, &remote_commit],
+    )?;
+    // Set working tree to match head.
+    repo.checkout_head(None)?;
+    Ok(())
+}
+
+pub fn push<'a>(repo: &git2::Repository, pub_file: &Option<&Path>, priv_file: &Path) -> Result<(), git2::Error>{
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(|_, _, _| {
-        let credentials = git2::Cred::ssh_key("git", *pub_file, &priv_file, None)
-            .expect("Could not create credentials object");
+        let credentials = git2::Cred::ssh_key("git", *pub_file, &priv_file, None)?;
         Ok(credentials)
     });
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks);
     let mut remote = repo
-        .find_remote("origin")
-        .expect("Error with finding remote");
-    remote
-        .push(
-            &["refs/heads/master:refs/heads/master"],
-            Some(&mut push_ops),
-        )
-        .expect("error with pushing files");
-    println!("Push file successfully.")
+        .find_remote("origin")?;
+    remote.push(&["refs/heads/master:refs/heads/master"],Some(&mut push_ops))?;
+    Ok(())
 }

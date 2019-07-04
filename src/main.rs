@@ -33,22 +33,6 @@ fn main() {
                 .required(false)
                 .help("A commit message"),
         )
-        .arg(
-            Arg::with_name("user")
-                .short("u")
-                .long("user")
-                .takes_value(true)
-                .required(false)
-                .help("A username signature"),
-        )
-        .arg(
-            Arg::with_name("email")
-                .short("e")
-                .long("email")
-                .takes_value(true)
-                .required(false)
-                .help("An email signature"),
-        )
         .get_matches();
 
     //handling filename
@@ -82,6 +66,7 @@ fn main() {
     println!("Commit message: {}", commit_msg);
 
     //handling user
+    /*
     let username = match matches.value_of("user"){
         Some(s) => String::from(s),
         None => lib::get_default_signature("name").unwrap(),
@@ -91,26 +76,31 @@ fn main() {
         None => lib::get_default_signature("email").unwrap(),
     };
     println!("{}, {}", username, email);
+    */
 
     let repo = git2::Repository::open(".").expect("Could not open a repository.");
     println!("{} stat={:?}", repo.path().display(), repo.state());
 
+    let mut remote = repo.find_remote("origin").expect("Could not find origin remote");
+
     //fetch repository
-    lib::fetch_repository(&repo, &pub_file, &priv_file);
+    let fetch_commit = lib::fetch_repository(&repo, &mut remote, &pub_file, &priv_file).unwrap();
+
+    //merge
+    let head_commit = repo.reference_to_annotated_commit(&repo.head().unwrap()).unwrap();
+    lib::merge_branch(&repo, &head_commit , &fetch_commit).unwrap();
 
     //add new file and commit
     let commit_id = lib::add_and_commit(
         &repo,
         Path::new(&filename),
         commit_msg.as_str(),
-        username.as_str(),
-        email.as_str(),
     )
     .expect("Couldn't add file to repo");
     println!("New commit: {}", commit_id);
 
     //push file
-    lib::push(&repo, &pub_file, &priv_file);
+    lib::push(&repo, &pub_file, &priv_file).expect("Could not push");
 
     //display recently commit
     let commit = lib::find_last_commit(&repo).expect("Could not find the last commit");
