@@ -12,14 +12,13 @@ fn main() {
                  .short("f")
                  .long("file")
                  .takes_value(true)
-                 .required(true)
+                 .required(false)
                  .help("The file(s) you would like to add"))
         .arg(Arg::with_name("credentialpath")
                  .short("c")
                  .long("credentialpath")
                  .takes_value(true)
                  .required(false)
-                 .default_value("~/.ssh/id_rsa")
                  .help("A path to your ssh key"))
         .arg(Arg::with_name("commit")
                  .short("m")
@@ -42,12 +41,13 @@ fn main() {
         .get_matches();
 
     //handling filename
-    let filename = validate_file(matches.value_of("file")).unwrap();
+    //let filename = validate_file(matches.value_of("file")).unwrap();
+    let filename = Path::new(matches.value_of("file").unwrap_or("test.md"));
     println!("File {} is found.", filename.display());
 
     //handling credential file
-    let priv_file = Path::new(matches.value_of("credentialpath").unwrap());
-    println!("Private key file: {}.", priv_file.display());
+    let priv_file = validate_credfile(matches.value_of("credentialpath")).unwrap();
+    println!("Private key file: {}.", priv_file.display());    
     let mut priv_filename = String::from(priv_file.to_str().unwrap());
     priv_filename.push_str(".pub");
     let pub_file = if Path::new(&priv_filename.as_str()).exists(){
@@ -70,7 +70,9 @@ fn main() {
     println!("Commit message: {}", commit_msg);
 
     //handling user
-    
+    let username = get_default_signature("name").unwrap();
+    let email = get_default_signature("email").unwrap();
+    println!("{}, {}", username, email);
 
     let repo = git2::Repository::open(".").expect("Could not open a repository.");
     println!("{} stat={:?}", repo.path().display(), repo.state());
@@ -147,7 +149,8 @@ fn validate_file<'a>(filename: Option<&'a str>) -> Result<PathBuf, &'static str>
     match filename{
         None => Err("Please enter filename."),
         Some(f) => {
-            let abs_path = env::current_dir().unwrap().join(Path::new("workspace")).join(Path::new(f));
+            //let abs_path = env::current_dir().unwrap().join(Path::new("workspace")).join(Path::new(f));
+            let abs_path = env::current_dir().unwrap().join(Path::new(f));
             if abs_path.exists(){
                 return Ok(abs_path)
             }else{
@@ -155,6 +158,57 @@ fn validate_file<'a>(filename: Option<&'a str>) -> Result<PathBuf, &'static str>
             };
         }
     }
+}
+
+fn validate_credfile<'a>(filename: Option<&'a str>) -> Result<PathBuf, &'static str>{
+    match filename{
+        None => {
+            let home = match env::var("HOME"){
+                Ok(val) => {
+                    let cred_path = Path::new(val.as_str()).join(".ssh").join("id_rsa");
+                    if !cred_path.exists(){
+                        return Err("Please enter a path to your credential file.");
+                    }
+                    Ok(cred_path.to_path_buf())
+                },
+                Err(_) => Err("Please enter a path to your credential file."),
+            };
+            home
+        },
+        Some(f) => {
+            let cred_path = Path::new(f);
+            if cred_path.exists(){
+                return Ok(cred_path.to_path_buf())
+            }else{
+                return Err("Credential file does not exist.")
+            };
+        }
+    }
+}
+
+fn get_default_signature(mode: &str) -> Result<String, &'static str>{
+    let git_command = match mode{
+        "email" => "git config --get user.email",
+        "name" => "git config --get user.name",
+        _ =>  panic!("Error with signature mode")
+    };
+    let vec_user_signature = if cfg!(target_os = "windows"){
+        Command::new("cmd")
+                .args(&["/C", git_command])
+                .output()
+                .expect("failed to execute process")
+                .stdout
+    }else{
+        Command::new("sh")
+                .args(&["-c", git_command])
+                .output()
+                .expect("failed to execute process")
+                .stdout
+    };
+    if vec_user_signature.len() == 0{
+        return Err("Failed to read the git config, please provide it directly");
+    }
+    Ok(String::from(std::str::from_utf8(&vec_user_signature[..vec_user_signature.len()-1]).unwrap()))
 }
 
 fn find_last_commit(repo: &git2::Repository) -> Result<git2::Commit, git2::Error> {
