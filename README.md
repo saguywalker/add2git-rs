@@ -8,7 +8,7 @@ An application that can add and push a file on git without boring type in step l
 
 ```bash
 git clone https://github.com/saguywalker/add2git-rs.git
-export 'export PATH=add2git-rs/bin:$PATH' >> ~/.bashrc
+echo 'export PATH=add2git-rs/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 add2git --help
 
