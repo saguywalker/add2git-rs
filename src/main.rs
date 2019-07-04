@@ -23,7 +23,7 @@ fn main() {
                 .long("credentialpath")
                 .takes_value(true)
                 .required(false)
-                .help("A path to your ssh key"),
+                .help("A path to your ssh key (default: ~/.ssh/id_rsa)"),
         )
         .arg(
             Arg::with_name("commit")
@@ -31,7 +31,7 @@ fn main() {
                 .long("commit")
                 .takes_value(true)
                 .required(false)
-                .help("A commit message"),
+                .help("A commit message (default: add $FILE)"),
         )
         .get_matches();
 
