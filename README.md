@@ -1,2 +1,2 @@
 # add2git-rs
-add2git-rs: an application that can add the files and push them on git.
+add2git-rs: An application that can add and push a file on git without boring type git pull, git add, git commit and git push in sequence.
