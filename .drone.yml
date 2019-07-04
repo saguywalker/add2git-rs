@@ -1,0 +1,9 @@
+kind: pipeline
+name: rust-pipe
+
+steps:
+  - name: build
+  - image: rust:1.30
+    commands:
+        - cargo build --verbose --all
+        - cargo run -- --help
