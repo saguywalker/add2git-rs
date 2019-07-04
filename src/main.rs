@@ -8,7 +8,7 @@ fn main() {
     let matches = App::new("add2git-rs")
         .version("0.1.0")
         .author("SAGUYWALKER <guyguy252@gmail.com>")
-        .about("CLI programming to add, commit and push a file to Git")
+        .about("CLI application to fetch, pull, add, commit and push a file to GIT without running the command sequentially.")
         .arg(
             Arg::with_name("file")
                 .short("f")
@@ -101,6 +101,7 @@ fn main() {
 
     //push file
     lib::push(&repo, &pub_file, &priv_file).expect("Could not push");
+    println!("Push a file successfully");
 
     //display recently commit
     let commit = lib::find_last_commit(&repo).expect("Could not find the last commit");

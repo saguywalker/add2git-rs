@@ -42,6 +42,7 @@ pub fn validate_credfile<'a>(filename: Option<&'a str>) -> Result<PathBuf, &'sta
     }
 }
 
+#[allow(dead_code)]
 pub fn get_default_signature(mode: &str) -> Result<String, &'static str> {
     let git_command = match mode {
         "email" => "git config --get user.email",
