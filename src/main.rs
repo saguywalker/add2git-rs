@@ -33,6 +33,14 @@ fn main() {
                 .required(false)
                 .help("A commit message (default: add $FILE)"),
         )
+        .arg(
+            Arg::with_name("branch")
+                .short("b")
+                .long("branch")
+                .takes_value(true)
+                .required(false)
+                .help("A branch to commit (default: master)"),
+        )
         .get_matches();
 
     //handling filename
@@ -65,19 +73,10 @@ fn main() {
     };
     println!("Commit message: {}", commit_msg);
 
-    //handling user
-    /*
-    let username = match matches.value_of("user"){
-        Some(s) => String::from(s),
-        None => lib::get_default_signature("name").unwrap(),
-    };
-    let email = match matches.value_of("email"){
-        Some(s) => String::from(s),
-        None => lib::get_default_signature("email").unwrap(),
-    };
-    println!("{}, {}", username, email);
-    */
+    //handling branch
+    let branch = matches.value_of("branch").unwrap_or("master");
 
+    //open a repository
     let repo = git2::Repository::open(".").expect("Could not open a repository.");
     println!("{} stat={:?}", repo.path().display(), repo.state());
 
@@ -90,7 +89,7 @@ fn main() {
         .expect("Could not fetch a repository.");
     println!("Fetch complete");
     //merge
-    lib::do_merge(&repo, "master", fetch_commit).expect("Could not merge");
+    lib::do_merge(&repo, &branch, fetch_commit).expect("Could not merge");
     println!("Merge complete");
 
     //add new file and commit
@@ -99,7 +98,7 @@ fn main() {
     println!("New commit: {}", commit_id);
 
     //push file
-    lib::push(&repo, &pub_file, &priv_file).expect("Could not push");
+    lib::push(&mut remote, &branch, &pub_file, &priv_file).expect("Could not push");
     println!("Push a file successfully");
 
     //display recently commit

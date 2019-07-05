@@ -213,8 +213,10 @@ pub fn do_merge<'a>(
     }
     Ok(())
 }
+
 pub fn push<'a>(
-    repo: &git2::Repository,
+    remote: &'a mut git2::Remote,
+    branch: &str,
     pub_file: &Option<&Path>,
     priv_file: &Path,
 ) -> Result<(), git2::Error> {
@@ -225,9 +227,10 @@ pub fn push<'a>(
     });
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks);
-    let mut remote = repo.find_remote("origin")?;
+    let push_ref = String::from("refs/heads/") + branch + ":refs/remotes/origin/" + branch;
+    println!("{}",push_ref);
     remote.push(
-        &["refs/heads/master:refs/heads/master"],
+        &[&push_ref],
         Some(&mut push_ops),
     )?;
     Ok(())
