@@ -47,7 +47,7 @@ pub fn get_default_signature(mode: &str) -> Result<String, &'static str> {
     let git_command = match mode {
         "email" => "git config --get user.email",
         "name" => "git config --get user.name",
-        _ => panic!("Error with signature mode"),
+        _ => return Err("Error with signature mode"),
     };
     let vec_user_signature = if cfg!(target_os = "windows") {
         Command::new("cmd")
@@ -90,11 +90,14 @@ pub fn display_commit(commit: &git2::Commit) {
 
 pub fn add_and_commit(
     repo: &git2::Repository,
-    path: &Path,
+    path: Vec<String>,
     message: &str,
 ) -> Result<git2::Oid, git2::Error> {
     let mut index = repo.index()?;
-    index.add_path(path)?;
+    for p in path.iter(){
+	index.add_path(Path::new(p))?;
+    }
+    //index.add_path(path)?;
     let oid = index.write_tree()?;
     //let signature = git2::Signature::now(user, email)?;
     let signature = repo.signature()?;
@@ -208,8 +211,6 @@ pub fn do_merge<'a>(
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(&repo, &head_commit, &fetch_commit)?;
-    } else {
-        println!("Nothing to do...");
     }
     Ok(())
 }
