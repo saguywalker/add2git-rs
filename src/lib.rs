@@ -227,8 +227,7 @@ pub fn push<'a>(
     });
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks);
-    let push_ref = String::from("refs/heads/") + branch + ":refs/remotes/origin/" + branch;
-    println!("{}",push_ref);
+    let push_ref = String::from("refs/heads/") + branch + ":refs/heads/" + branch;
     remote.push(
         &[&push_ref],
         Some(&mut push_ops),
