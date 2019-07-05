@@ -94,8 +94,8 @@ pub fn add_and_commit(
     message: &str,
 ) -> Result<git2::Oid, git2::Error> {
     let mut index = repo.index()?;
-    for p in path.iter(){
-	index.add_path(Path::new(p))?;
+    for p in path.iter() {
+        index.add_path(Path::new(p))?;
     }
     //index.add_path(path)?;
     let oid = index.write_tree()?;
@@ -229,9 +229,6 @@ pub fn push<'a>(
     let mut push_ops = git2::PushOptions::new();
     push_ops.remote_callbacks(callbacks);
     let push_ref = String::from("refs/heads/") + branch + ":refs/heads/" + branch;
-    remote.push(
-        &[&push_ref],
-        Some(&mut push_ops),
-    )?;
+    remote.push(&[&push_ref], Some(&mut push_ops))?;
     Ok(())
 }

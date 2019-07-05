@@ -43,8 +43,12 @@ fn main() {
         .get_matches();
 
     //handling filename
-    let filenames: Vec<String> = matches.values_of("FILE").unwrap().map(|x| lib::validate_file(Some(x)).unwrap()).collect();
-   
+    let filenames: Vec<String> = matches
+        .values_of("FILE")
+        .unwrap()
+        .map(|x| lib::validate_file(Some(x)).unwrap())
+        .collect();
+
     //handling credential file
     let priv_file = lib::validate_credfile(matches.value_of("credentialpath")).unwrap();
     //println!("Private key file: {}.", priv_file.display());
@@ -97,5 +101,4 @@ fn main() {
     //display recently commit
     let commit = lib::find_last_commit(&repo).expect("Could not find the last commit");
     lib::display_commit(&commit);
- 
 }
