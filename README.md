@@ -11,7 +11,9 @@ An application that can add and push a file on git without boring type in step l
 git clone https://github.com/saguywalker/add2git-rs.git
 echo 'export PATH=add2git-rs/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-add2git --help
+
+#push test.md file to Git
+add2git test.md
 
 ```
 
